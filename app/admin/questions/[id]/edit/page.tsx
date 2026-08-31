@@ -1,0 +1,204 @@
+import { Metadata } from "next";
+import Link from "next/link";
+import { ArrowLeft, Save } from "lucide-react";
+import { prisma } from "@/lib/prisma";
+import { updateQuestion } from "@/actions/admin.actions";
+import { redirect, notFound } from "next/navigation";
+
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Modifier la Question | ALMOMKIN TEST V1",
+};
+
+export default async function EditQuestionPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+
+  const [question, activeCases] = await Promise.all([
+    prisma.question.findUnique({
+      where: { id },
+      include: {
+        options: {
+          orderBy: { order: "asc" },
+        },
+      },
+    }),
+    prisma.studyCase.findMany({
+      where: { isActive: true },
+      orderBy: { order: "asc" },
+    }),
+  ]);
+
+  if (!question) {
+    notFound();
+  }
+
+  async function handleSubmit(formData: FormData) {
+    "use server";
+    const studyCaseId = formData.get("studyCaseId") as string;
+    const text = formData.get("text") as string;
+    const isActive = formData.get("isActive") === "true";
+    const order = parseInt(formData.get("order") as string, 10);
+    
+    const options = [
+      { id: formData.get("optionA_id") as string, label: "A", text: formData.get("optionA") as string, order: 1 },
+      { id: formData.get("optionB_id") as string, label: "B", text: formData.get("optionB") as string, order: 2 },
+      { id: formData.get("optionC_id") as string, label: "C", text: formData.get("optionC") as string, order: 3 },
+      { id: formData.get("optionD_id") as string, label: "D", text: formData.get("optionD") as string, order: 4 },
+    ];
+
+    await updateQuestion(id, { studyCaseId, text, isActive, order, options });
+    redirect("/admin/questions");
+  }
+
+  // Map options for easy pre-filling
+  const getOptionByLabel = (label: string) => {
+    return question.options.find(opt => opt.label === label) || { id: "", text: "" };
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Link 
+          href="/admin/questions" 
+          className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+            Modifier la Question
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Modifiez les informations et les options de réponse de cette question.
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+        <form action={handleSubmit} className="p-6 space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="studyCaseId" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Cas d'étude associé
+              </label>
+              <select
+                id="studyCaseId"
+                name="studyCaseId"
+                required
+                defaultValue={question.studyCaseId}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-indigo-400 dark:focus:ring-indigo-400"
+              >
+                <option value="">Sélectionnez un cas d'étude...</option>
+                {activeCases.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="text" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Texte de la question
+              </label>
+              <textarea
+                id="text"
+                name="text"
+                required
+                rows={3}
+                defaultValue={question.text}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-indigo-400 dark:focus:ring-indigo-400"
+                placeholder="Ex: Quelle est la principale cause de..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="order" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Ordre d'affichage
+              </label>
+              <input
+                type="number"
+                id="order"
+                name="order"
+                required
+                min={0}
+                defaultValue={question.order}
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-indigo-400 dark:focus:ring-indigo-400"
+              />
+            </div>
+
+            <div className="space-y-2 flex flex-col justify-center">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Statut
+              </label>
+              <div className="flex items-center gap-3 mt-2">
+                <input
+                  type="checkbox"
+                  id="isActive"
+                  name="isActive"
+                  value="true"
+                  defaultChecked={question.isActive}
+                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:ring-offset-slate-800"
+                />
+                <label htmlFor="isActive" className="text-sm text-slate-700 dark:text-slate-300">
+                  Question active (visible)
+                </label>
+              </div>
+            </div>
+
+            <div className="md:col-span-2 mt-4">
+              <h3 className="text-lg font-medium text-slate-900 dark:text-white border-b border-slate-200 dark:border-slate-700 pb-2 mb-4">
+                Options de réponse
+              </h3>
+              
+              <div className="space-y-4">
+                {['A', 'B', 'C', 'D'].map((label) => {
+                  const opt = getOptionByLabel(label);
+                  return (
+                    <div key={label} className="flex gap-4">
+                      <input type="hidden" name={`option${label}_id`} value={opt.id} />
+                      <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-bold border border-indigo-100 dark:border-indigo-800">
+                        {label}
+                      </div>
+                      <div className="flex-grow">
+                        <input
+                          type="text"
+                          name={`option${label}`}
+                          required
+                          defaultValue={opt.text}
+                          placeholder={`Texte de l'option ${label}`}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-indigo-400 dark:focus:ring-indigo-400"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700 mt-6">
+            <Link
+              href="/admin/questions"
+              className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-700 transition-colors"
+            >
+              Annuler
+            </Link>
+            <button
+              type="submit"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              <Save className="h-4 w-4" />
+              Enregistrer
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

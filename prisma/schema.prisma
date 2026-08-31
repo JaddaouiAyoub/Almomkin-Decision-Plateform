@@ -1,0 +1,215 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ADMIN
+// ============================================================
+
+model Admin {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("admins")
+}
+
+// ============================================================
+// EXPERIMENT
+// ============================================================
+
+model Experiment {
+  id          String            @id @default(uuid())
+  name        String
+  description String?
+  isActive    Boolean           @default(true)
+  groups      ExperimentGroup[]
+  studyCases  StudyCase[]
+  sessions    TestSession[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@map("experiments")
+}
+
+model ExperimentGroup {
+  id           String      @id @default(uuid())
+  experimentId String
+  experiment   Experiment  @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  name         String // "Group A" / "Group B"
+  label        String // "A" / "B"
+  description  String?
+  isActive     Boolean     @default(true)
+  sessions     TestSession[]
+  responses    Response[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([experimentId, label])
+  @@index([experimentId])
+  @@map("experiment_groups")
+}
+
+// ============================================================
+// STUDY CASES
+// ============================================================
+
+model StudyCase {
+  id            String             @id @default(uuid())
+  experimentId  String
+  experiment    Experiment         @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  title         String
+  isActive      Boolean            @default(true)
+  order         Int                @default(0)
+  groupContents CaseGroupContent[]
+  questions     Question[]
+  sessions      TestSession[]
+  responses     Response[]
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([experimentId])
+  @@map("study_cases")
+}
+
+model CaseGroupContent {
+  id          String    @id @default(uuid())
+  studyCaseId String
+  studyCase   StudyCase @relation(fields: [studyCaseId], references: [id], onDelete: Cascade)
+  groupLabel  String // "A" or "B"
+  content     String    @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([studyCaseId, groupLabel])
+  @@map("case_group_contents")
+}
+
+// ============================================================
+// QUESTIONS & ANSWERS
+// ============================================================
+
+model Question {
+  id          String         @id @default(uuid())
+  studyCaseId String
+  studyCase   StudyCase      @relation(fields: [studyCaseId], references: [id], onDelete: Cascade)
+  text        String         @db.Text
+  order       Int            @default(0)
+  isActive    Boolean        @default(true)
+  options     AnswerOption[]
+  responses   Response[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([studyCaseId])
+  @@map("questions")
+}
+
+model AnswerOption {
+  id         String     @id @default(uuid())
+  questionId String
+  question   Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label      String // "A", "B", "C", "D"
+  text       String     @db.Text
+  order      Int        @default(0)
+  responses  Response[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([questionId])
+  @@map("answer_options")
+}
+
+// ============================================================
+// PARTICIPANTS & SESSIONS
+// ============================================================
+
+model Participant {
+  id        String        @id @default(uuid())
+  sessions  TestSession[]
+  responses Response[]
+  createdAt DateTime      @default(now())
+
+  @@map("participants")
+}
+
+model TestSession {
+  id            String          @id @default(uuid())
+  participantId String
+  participant   Participant     @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  experimentId  String
+  experiment    Experiment      @relation(fields: [experimentId], references: [id])
+  groupId       String
+  group         ExperimentGroup @relation(fields: [groupId], references: [id])
+  studyCaseId   String
+  studyCase     StudyCase       @relation(fields: [studyCaseId], references: [id])
+  status        SessionStatus   @default(STARTED)
+  startedAt     DateTime        @default(now())
+  completedAt   DateTime?
+  responses     Response[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([participantId])
+  @@index([groupId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("test_sessions")
+}
+
+// ============================================================
+// RESPONSES
+// ============================================================
+
+model Response {
+  id              String          @id @default(uuid())
+  sessionId       String
+  session         TestSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  participantId   String
+  participant     Participant     @relation(fields: [participantId], references: [id])
+  groupId         String
+  group           ExperimentGroup @relation(fields: [groupId], references: [id])
+  studyCaseId     String
+  studyCase       StudyCase       @relation(fields: [studyCaseId], references: [id])
+  questionId      String
+  question        Question        @relation(fields: [questionId], references: [id])
+  answerOptionId  String
+  answerOption    AnswerOption    @relation(fields: [answerOptionId], references: [id])
+  decisionTimeMs  Int // Millisecondes (calculé côté serveur)
+  confidenceScore Int? // 0-10 (ajouté après)
+  questionShownAt DateTime // Timestamp serveur quand question affichée
+  answeredAt      DateTime // Timestamp serveur quand réponse soumise
+  clientTimeMs    Int? // Temps côté client (pour comparaison/audit)
+  createdAt       DateTime        @default(now())
+
+  @@index([groupId])
+  @@index([studyCaseId])
+  @@index([questionId])
+  @@index([answerOptionId])
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("responses")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum SessionStatus {
+  STARTED
+  CASE_SHOWN
+  QUESTION_SHOWN
+  ANSWERED
+  COMPLETED
+}
