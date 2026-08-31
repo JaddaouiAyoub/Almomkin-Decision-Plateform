@@ -62,8 +62,6 @@ export async function startSession(
   });
 
   // 6. Return data needed for the test flow (NO group label exposed)
-  const question = studyCase.questions[0];
-
   return {
     participantId: participant.id,
     sessionId: session.id,
@@ -72,15 +70,16 @@ export async function startSession(
       title: studyCase.title,
       content: groupContent.content,
     },
-    question: {
-      id: question.id,
-      text: question.text,
-      options: question.options.map((opt) => ({
+    questions: studyCase.questions.map((q) => ({
+      id: q.id,
+      text: q.text,
+      order: q.order,
+      options: q.options.map((opt) => ({
         id: opt.id,
         label: opt.label,
         text: opt.text,
         order: opt.order,
       })),
-    },
+    })),
   };
 }

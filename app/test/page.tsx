@@ -11,11 +11,14 @@ import { CompletionScreen } from "@/components/test/CompletionScreen";
 import type { TestState, StartSessionResponse } from "@/types";
 
 export default function TestPage() {
-  const [state, setState] = useState<TestState>({ step: "landing" });
+  const [state, setState] = useState<TestState>({ step: "landing", currentQuestionIndex: 0, questions: [] });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const timer = useTimer();
+
+  const currentQuestion = state.questions[state.currentQuestionIndex];
+  const isLastQuestion = state.currentQuestionIndex === state.questions.length - 1;
 
   const handleStart = async () => {
     setIsLoading(true);
@@ -30,7 +33,8 @@ export default function TestPage() {
         participantId: data.participantId,
         sessionId: data.sessionId,
         studyCase: data.studyCase,
-        question: data.question,
+        questions: data.questions,
+        currentQuestionIndex: 0,
       });
     } catch (err) {
       setError("Une erreur est survenue. Veuillez réessayer.");
@@ -71,7 +75,7 @@ export default function TestPage() {
   };
 
   const handleSubmitDecision = async () => {
-    if (!state.selectedOptionId) return;
+    if (!state.selectedOptionId || !currentQuestion) return;
     
     const clientTimeMs = timer.stop();
     setIsLoading(true);
@@ -84,7 +88,7 @@ export default function TestPage() {
         body: JSON.stringify({
           sessionId: state.sessionId,
           participantId: state.participantId,
-          questionId: state.question?.id,
+          questionId: currentQuestion.id,
           answerOptionId: state.selectedOptionId,
           clientTimeMs,
         }),
@@ -118,11 +122,25 @@ export default function TestPage() {
           responseId: state.responseId,
           sessionId: state.sessionId,
           confidenceScore: score,
+          isLastQuestion,
         }),
       });
       if (!res.ok) throw new Error("Failed to save confidence");
       
-      setState((prev) => ({ ...prev, step: "completed" }));
+      if (isLastQuestion) {
+        setState((prev) => ({ ...prev, step: "completed" }));
+      } else {
+        // Prepare for the next question
+        setState((prev) => ({
+          ...prev,
+          currentQuestionIndex: prev.currentQuestionIndex + 1,
+          selectedOptionId: undefined,
+          confidenceScore: undefined,
+          responseId: undefined,
+        }));
+        // Automatically fetch timestamp and start timer for next question
+        await handleContinueToQuestion();
+      }
     } catch (err) {
       setError("Erreur lors de l'enregistrement.");
       console.error(err);
@@ -160,11 +178,11 @@ export default function TestPage() {
           />
         )}
         
-        {state.step === "question" && state.question && (
+        {state.step === "question" && currentQuestion && (
           <QuestionScreen
-            key="question"
-            questionText={state.question.text}
-            options={state.question.options}
+            key={`question-${currentQuestion.id}`}
+            questionText={currentQuestion.text}
+            options={currentQuestion.options}
             selectedOptionId={state.selectedOptionId}
             onSelectOption={handleSelectOption}
             onSubmit={handleSubmitDecision}
@@ -175,7 +193,7 @@ export default function TestPage() {
         
         {state.step === "confidence" && (
           <ConfidenceScreen
-            key="confidence"
+            key={`confidence-${currentQuestion?.id}`}
             score={state.confidenceScore ?? null}
             onSelectScore={(score) => setState(prev => ({ ...prev, confidenceScore: score }))}
             onSubmit={() => {

@@ -74,114 +74,124 @@ export default async function AdminDashboard() {
         </div>
       </div>
 
-      {/* A/B Comparison */}
-      <div className="mt-12">
-        <h2 className="text-lg font-bold text-slate-900 mb-6 tracking-tight uppercase text-sm">Comparaison A/B</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Group A Card */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-            <div className="bg-indigo-50/50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="badge-group-a">GROUP A</span>
-                <span className="font-medium text-slate-700">{stats.groupA.groupName}</span>
-              </div>
-              <span className="text-sm font-medium text-slate-500">{stats.groupA.participantCount} participants</span>
+      {/* Per-Question A/B Comparison */}
+      <div className="mt-12 space-y-12">
+        {stats.perQuestion.map((q, idx) => (
+          <div key={q.questionId}>
+            <div className="mb-6">
+              <h2 className="text-lg font-bold text-slate-900 tracking-tight uppercase text-sm">
+                Q{idx + 1}. {q.questionText}
+              </h2>
+              <p className="text-slate-500 text-sm mt-1">{q.totalResponses} réponses pour cette question</p>
             </div>
-            <div className="p-6">
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div>
-                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Temps moyen</p>
-                  <p className="text-xl font-semibold text-slate-900">{formatDecisionTime(stats.groupA.avgDecisionTimeMs)}</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Group A Card */}
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                <div className="bg-indigo-50/50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="badge-group-a">GROUP A</span>
+                    <span className="font-medium text-slate-700">{stats.groupA.groupName}</span>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Confiance</p>
-                  <p className="text-xl font-semibold text-slate-900">{stats.groupA.avgConfidence} <span className="text-sm text-slate-400 font-normal">/ 10</span></p>
-                </div>
-              </div>
-              
-              <div>
-                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Distribution des réponses</p>
-                <div className="space-y-3">
-                  {stats.groupA.answerDistribution.map(ans => (
-                    <div key={ans.optionId} className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded bg-slate-100 text-slate-600 font-medium text-sm flex items-center justify-center shrink-0">
-                        {ans.label}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="truncate text-slate-600" title={ans.text}>{ans.text}</span>
-                          <span className="font-medium text-slate-900 ml-2">{ans.percentage}%</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-indigo-500 rounded-full transition-all duration-1000" 
-                            style={{ width: `${ans.percentage}%` }}
-                          />
-                        </div>
-                      </div>
+                <div className="p-6">
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div>
+                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Temps moyen</p>
+                      <p className="text-xl font-semibold text-slate-900">{formatDecisionTime(q.groupA.avgDecisionTimeMs)}</p>
                     </div>
-                  ))}
+                    <div>
+                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Confiance</p>
+                      <p className="text-xl font-semibold text-slate-900">{q.groupA.avgConfidence} <span className="text-sm text-slate-400 font-normal">/ 10</span></p>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Distribution des réponses</p>
+                    <div className="space-y-3">
+                      {q.groupA.answerDistribution.map(ans => (
+                        <div key={ans.optionId} className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded bg-slate-100 text-slate-600 font-medium text-sm flex items-center justify-center shrink-0">
+                            {ans.label}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="truncate text-slate-600" title={ans.text}>{ans.text}</span>
+                              <span className="font-medium text-slate-900 ml-2">{ans.percentage}%</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-indigo-500 rounded-full transition-all duration-1000" 
+                                style={{ width: `${ans.percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Group B Card */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-            <div className="bg-cyan-50/50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="badge-group-b">GROUP B</span>
-                <span className="font-medium text-slate-700">{stats.groupB.groupName}</span>
-              </div>
-              <span className="text-sm font-medium text-slate-500">{stats.groupB.participantCount} participants</span>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div>
-                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Temps moyen</p>
-                  <p className="text-xl font-semibold text-slate-900">{formatDecisionTime(stats.groupB.avgDecisionTimeMs)}</p>
+              {/* Group B Card */}
+              <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                <div className="bg-cyan-50/50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="badge-group-b">GROUP B</span>
+                    <span className="font-medium text-slate-700">{stats.groupB.groupName}</span>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Confiance</p>
-                  <p className="text-xl font-semibold text-slate-900">{stats.groupB.avgConfidence} <span className="text-sm text-slate-400 font-normal">/ 10</span></p>
-                </div>
-              </div>
-              
-              <div>
-                <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Distribution des réponses</p>
-                <div className="space-y-3">
-                  {stats.groupB.answerDistribution.map(ans => (
-                    <div key={ans.optionId} className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded bg-slate-100 text-slate-600 font-medium text-sm flex items-center justify-center shrink-0">
-                        {ans.label}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="truncate text-slate-600" title={ans.text}>{ans.text}</span>
-                          <span className="font-medium text-slate-900 ml-2">{ans.percentage}%</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-cyan-500 rounded-full transition-all duration-1000" 
-                            style={{ width: `${ans.percentage}%` }}
-                          />
-                        </div>
-                      </div>
+                <div className="p-6">
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div>
+                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Temps moyen</p>
+                      <p className="text-xl font-semibold text-slate-900">{formatDecisionTime(q.groupB.avgDecisionTimeMs)}</p>
                     </div>
-                  ))}
+                    <div>
+                      <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Confiance</p>
+                      <p className="text-xl font-semibold text-slate-900">{q.groupB.avgConfidence} <span className="text-sm text-slate-400 font-normal">/ 10</span></p>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Distribution des réponses</p>
+                    <div className="space-y-3">
+                      {q.groupB.answerDistribution.map(ans => (
+                        <div key={ans.optionId} className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded bg-slate-100 text-slate-600 font-medium text-sm flex items-center justify-center shrink-0">
+                            {ans.label}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="truncate text-slate-600" title={ans.text}>{ans.text}</span>
+                              <span className="font-medium text-slate-900 ml-2">{ans.percentage}%</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-cyan-500 rounded-full transition-all duration-1000" 
+                                style={{ width: `${ans.percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        ))}
       </div>
 
-      <DashboardCharts 
-        stats={stats} 
-        timeDistribution={timeDistribution} 
-        confidenceDistribution={confidenceDistribution} 
-      />
+      <div className="mt-12">
+        <h2 className="text-lg font-bold text-slate-900 mb-6 tracking-tight uppercase text-sm">Graphiques Globaux</h2>
+        <DashboardCharts 
+          stats={stats} 
+          timeDistribution={timeDistribution} 
+          confidenceDistribution={confidenceDistribution} 
+        />
+      </div>
     </div>
   );
 }

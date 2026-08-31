@@ -26,6 +26,7 @@ export async function calculateStats(
     },
     include: {
       group: true,
+      studyCase: true,
       answerOption: true,
       question: {
         include: { options: { orderBy: { order: "asc" } } },
@@ -60,7 +61,7 @@ export async function calculateStats(
       .filter((r) => r.confidenceScore !== null)
       .map((r) => r.confidenceScore as number);
 
-    // Answer distribution
+    // Group-level Answer distribution (aggregated across all questions)
     const optionCounts = new Map<string, number>();
     groupResponses.forEach((r) => {
       optionCounts.set(
@@ -69,21 +70,18 @@ export async function calculateStats(
       );
     });
 
-    // Get all options for the question (from first response)
-    const questionOptions =
-      groupResponses.length > 0 ? groupResponses[0].question.options : [];
-
-    const answerDistribution = questionOptions.map((opt) => {
-      const count = optionCounts.get(opt.id) ?? 0;
+    // We can't build a meaningful aggregated distribution if questions have different options,
+    // but we'll try to find common option labels (A, B, C, D) for the high-level chart.
+    const aggregatedDist = ["A", "B", "C", "D"].map((label) => {
+      // Find all options with this label in the experiment
+      const matchingResponses = groupResponses.filter((r) => r.answerOption.label === label);
+      const count = matchingResponses.length;
       return {
-        optionId: opt.id,
-        label: opt.label,
-        text: opt.text,
+        optionId: `agg-${label}`,
+        label,
+        text: `Option ${label}`,
         count,
-        percentage:
-          groupResponses.length > 0
-            ? Math.round((count / groupResponses.length) * 100)
-            : 0,
+        percentage: groupResponses.length > 0 ? Math.round((count / groupResponses.length) * 100) : 0,
       };
     });
 
@@ -105,7 +103,53 @@ export async function calculateStats(
                 10
             ) / 10
           : 0,
-      answerDistribution,
+      answerDistribution: aggregatedDist,
+    });
+  }
+
+  // Build PER-QUESTION stats
+  const perQuestionStats: import("@/types").PerQuestionStats[] = [];
+  
+  // Find all unique questions in the responses
+  const uniqueQuestions = Array.from(new Set(responses.map(r => r.questionId)))
+    .map(qid => responses.find(r => r.questionId === qid)!.question)
+    .sort((a, b) => a.order - b.order);
+
+  for (const q of uniqueQuestions) {
+    const qResponses = responses.filter(r => r.questionId === q.id);
+    
+    // Helper to calculate stats for a specific group for this question
+    const getGroupQStats = (groupLabel: string) => {
+      const gResponses = qResponses.filter(r => r.group.label === groupLabel);
+      const gTimes = gResponses.map(r => r.decisionTimeMs);
+      const gConfidences = gResponses.filter(r => r.confidenceScore !== null).map(r => r.confidenceScore as number);
+      
+      const distribution = q.options.map(opt => {
+        const count = gResponses.filter(r => r.answerOptionId === opt.id).length;
+        return {
+          optionId: opt.id,
+          label: opt.label,
+          text: opt.text,
+          count,
+          percentage: gResponses.length > 0 ? Math.round((count / gResponses.length) * 100) : 0,
+        };
+      });
+
+      return {
+        avgDecisionTimeMs: gTimes.length > 0 ? Math.round(gTimes.reduce((a, b) => a + b, 0) / gTimes.length) : 0,
+        avgConfidence: gConfidences.length > 0 ? Math.round((gConfidences.reduce((a, b) => a + b, 0) / gConfidences.length) * 10) / 10 : 0,
+        answerDistribution: distribution,
+      };
+    };
+
+    perQuestionStats.push({
+      questionId: q.id,
+      questionText: q.text,
+      questionOrder: q.order,
+      caseTitle: qResponses.length > 0 ? qResponses[0].studyCase.title : "",
+      totalResponses: qResponses.length,
+      groupA: getGroupQStats("A"),
+      groupB: getGroupQStats("B"),
     });
   }
 
@@ -148,6 +192,7 @@ export async function calculateStats(
         : 0,
     groupA: groupStatsMap.get("A") ?? emptyGroup,
     groupB: groupStatsMap.get("B") ?? emptyGroup,
+    perQuestion: perQuestionStats,
   };
 }
 
@@ -202,6 +247,7 @@ export async function getResponsesForTable(filters: {
       groupLabel: r.group.label,
       groupName: r.group.name,
       caseTitle: r.studyCase.title,
+      questionOrder: r.question.order,
       questionText: r.question.text,
       answerLabel: r.answerOption.label,
       answerText: r.answerOption.text,

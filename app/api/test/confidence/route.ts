@@ -6,6 +6,7 @@ const schema = z.object({
   responseId: z.string().uuid(),
   sessionId: z.string().uuid(),
   confidenceScore: z.number().int().min(0).max(10),
+  isLastQuestion: z.boolean().default(true),
 });
 
 export async function PATCH(request: NextRequest) {
@@ -23,7 +24,8 @@ export async function PATCH(request: NextRequest) {
     await saveConfidence(
       parsed.data.responseId,
       parsed.data.sessionId,
-      parsed.data.confidenceScore
+      parsed.data.confidenceScore,
+      parsed.data.isLastQuestion
     );
 
     return NextResponse.json({ success: true });

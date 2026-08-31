@@ -78,12 +78,14 @@ export async function submitDecision(
 }
 
 /**
- * Updates the confidence score and marks session as completed.
+ * Updates the confidence score.
+ * Only marks session as COMPLETED if this is the last question.
  */
 export async function saveConfidence(
   responseId: string,
   sessionId: string,
-  confidenceScore: number
+  confidenceScore: number,
+  isLastQuestion: boolean
 ): Promise<void> {
   if (confidenceScore < 0 || confidenceScore > 10) {
     throw new Error("Confidence score must be between 0 and 10");
@@ -94,13 +96,15 @@ export async function saveConfidence(
     data: { confidenceScore },
   });
 
-  await prisma.testSession.update({
-    where: { id: sessionId },
-    data: {
-      status: "COMPLETED",
-      completedAt: new Date(),
-    },
-  });
+  if (isLastQuestion) {
+    await prisma.testSession.update({
+      where: { id: sessionId },
+      data: {
+        status: "COMPLETED",
+        completedAt: new Date(),
+      },
+    });
+  }
 }
 
 /**

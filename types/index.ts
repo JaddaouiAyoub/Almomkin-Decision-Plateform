@@ -12,6 +12,22 @@ export type SessionStatus =
   | "COMPLETED";
 
 // ============================================================
+// REUSABLE QUESTION DATA
+// ============================================================
+
+export interface QuestionData {
+  id: string;
+  text: string;
+  order: number;
+  options: {
+    id: string;
+    label: string;
+    text: string;
+    order: number;
+  }[];
+}
+
+// ============================================================
 // API RESPONSE TYPES
 // ============================================================
 
@@ -23,16 +39,7 @@ export interface StartSessionResponse {
     title: string;
     content: string; // content for the assigned group
   };
-  question: {
-    id: string;
-    text: string;
-    options: {
-      id: string;
-      label: string;
-      text: string;
-      order: number;
-    }[];
-  };
+  questions: QuestionData[];
 }
 
 export interface QuestionShownResponse {
@@ -68,16 +75,8 @@ export interface TestState {
     title: string;
     content: string;
   };
-  question?: {
-    id: string;
-    text: string;
-    options: {
-      id: string;
-      label: string;
-      text: string;
-      order: number;
-    }[];
-  };
+  questions: QuestionData[];
+  currentQuestionIndex: number;
   selectedOptionId?: string;
   responseId?: string;
   questionShownAt?: string;
@@ -89,6 +88,32 @@ export interface TestState {
 // ADMIN STATISTICS TYPES
 // ============================================================
 
+export interface AnswerDistItem {
+  optionId: string;
+  label: string;
+  text: string;
+  count: number;
+  percentage: number;
+}
+
+export interface PerQuestionStats {
+  questionId: string;
+  questionText: string;
+  questionOrder: number;
+  caseTitle: string;
+  totalResponses: number;
+  groupA: {
+    avgDecisionTimeMs: number;
+    avgConfidence: number;
+    answerDistribution: AnswerDistItem[];
+  };
+  groupB: {
+    avgDecisionTimeMs: number;
+    avgConfidence: number;
+    answerDistribution: AnswerDistItem[];
+  };
+}
+
 export interface GroupStats {
   groupId: string;
   groupLabel: GroupLabel;
@@ -98,13 +123,7 @@ export interface GroupStats {
   avgDecisionTimeMs: number;
   medianDecisionTimeMs: number;
   avgConfidence: number;
-  answerDistribution: {
-    optionId: string;
-    label: string;
-    text: string;
-    count: number;
-    percentage: number;
-  }[];
+  answerDistribution: AnswerDistItem[];
 }
 
 export interface OverallStats {
@@ -116,6 +135,7 @@ export interface OverallStats {
   avgConfidence: number;
   groupA: GroupStats;
   groupB: GroupStats;
+  perQuestion: PerQuestionStats[];
 }
 
 // ============================================================
@@ -129,6 +149,7 @@ export interface ResultRow {
   groupLabel: string;
   groupName: string;
   caseTitle: string;
+  questionOrder: number;
   questionText: string;
   answerLabel: string;
   answerText: string;

@@ -64,6 +64,8 @@ export default async function ResultsPage({
               <tr>
                 <th className="hidden sm:table-cell">Participant</th>
                 <th>Groupe</th>
+                <th>Cas</th>
+                <th>Question</th>
                 <th>Réponse</th>
                 <th>Temps</th>
                 <th>Confiance</th>
@@ -73,7 +75,7 @@ export default async function ResultsPage({
             <tbody>
               {responses.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-slate-500">
+                  <td colSpan={8} className="text-center py-8 text-slate-500">
                     Aucune réponse trouvée.
                   </td>
                 </tr>
@@ -88,14 +90,35 @@ export default async function ResultsPage({
                         {res.groupName}
                       </span>
                     </td>
+                    <td className="text-slate-700 text-sm font-medium">
+                      {res.caseTitle}
+                    </td>
+                    <td className="text-slate-600 text-sm max-w-[250px]">
+                      <div className="font-medium text-slate-900 mb-1">
+                        Q{res.questionOrder}
+                      </div>
+                      <details className="cursor-pointer group">
+                        <summary className="truncate text-slate-500 group-hover:text-slate-700 transition-colors list-none">
+                          <span className="underline decoration-slate-300 decoration-dashed underline-offset-4">Voir la question</span>
+                        </summary>
+                        <div className="mt-2 text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 whitespace-pre-wrap">
+                          {res.questionText}
+                        </div>
+                      </details>
+                    </td>
                     <td>
-                      <div className="flex items-center gap-2">
-                        <span className="w-5 h-5 rounded bg-slate-100 text-slate-700 text-xs font-bold flex items-center justify-center">
+                      <div className="flex items-start gap-2">
+                        <span className="w-5 h-5 rounded bg-slate-100 text-slate-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
                           {res.answerLabel}
                         </span>
-                        <span className="truncate max-w-[120px] sm:max-w-[200px]" title={res.answerText}>
-                          {res.answerText}
-                        </span>
+                        <details className="cursor-pointer group">
+                          <summary className="truncate max-w-[120px] sm:max-w-[180px] list-none">
+                            {res.answerText}
+                          </summary>
+                          <div className="mt-2 text-xs text-slate-600 bg-slate-50 p-2 rounded border border-slate-100 whitespace-pre-wrap">
+                            {res.answerText}
+                          </div>
+                        </details>
                       </div>
                     </td>
                     <td className="font-medium text-slate-700">
