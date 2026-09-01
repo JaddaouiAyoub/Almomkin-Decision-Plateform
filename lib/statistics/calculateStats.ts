@@ -11,8 +11,22 @@ function median(values: number[]): number {
 }
 
 export async function calculateStats(
-  experimentId: string
+  experimentId: string,
+  studyCaseId?: string
 ): Promise<OverallStats> {
+  const responseWhere = {
+    session: {
+      experimentId,
+      ...(studyCaseId ? { studyCaseId } : {}),
+    },
+    ...(studyCaseId ? { studyCaseId } : {}),
+  };
+
+  const sessionWhere = {
+    experimentId,
+    ...(studyCaseId ? { studyCaseId } : {}),
+  };
+
   // Get all groups
   const groups = await prisma.experimentGroup.findMany({
     where: { experimentId },
@@ -21,9 +35,7 @@ export async function calculateStats(
 
   // Get all responses with their details
   const responses = await prisma.response.findMany({
-    where: {
-      session: { experimentId },
-    },
+    where: responseWhere,
     include: {
       group: true,
       studyCase: true,
@@ -36,15 +48,22 @@ export async function calculateStats(
 
   // Completed sessions count
   const completedSessions = await prisma.testSession.count({
-    where: { experimentId, status: "COMPLETED" },
+    where: { ...sessionWhere, status: "COMPLETED" },
   });
 
   const totalSessions = await prisma.testSession.count({
-    where: { experimentId },
+    where: sessionWhere,
   });
 
   const totalParticipants = await prisma.participant.count({
-    where: { sessions: { some: { experimentId } } },
+    where: {
+      sessions: {
+        some: {
+          experimentId,
+          ...(studyCaseId ? { studyCaseId } : {}),
+        },
+      },
+    },
   });
 
   // Build group stats
@@ -53,7 +72,15 @@ export async function calculateStats(
   for (const group of groups) {
     const groupResponses = responses.filter((r) => r.groupId === group.id);
     const groupParticipants = await prisma.participant.count({
-      where: { sessions: { some: { groupId: group.id, experimentId } } },
+      where: {
+        sessions: {
+          some: {
+            groupId: group.id,
+            experimentId,
+            ...(studyCaseId ? { studyCaseId } : {}),
+          },
+        },
+      },
     });
 
     const times = groupResponses.map((r) => r.decisionTimeMs);
