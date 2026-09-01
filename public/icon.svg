@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ALMOMKIN icon">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="url(#bg)"/>
+  <path d="M18 42V21.5C18 19.57 19.57 18 21.5 18H42.5C44.43 18 46 19.57 46 21.5V42H18Z" fill="#f8fafc" opacity="0.12"/>
+  <path d="M20 40V24C20 22.34 21.34 21 23 21H41C42.66 21 44 22.34 44 24V40H38.5V28.5C38.5 27.12 37.38 26 36 26H28C26.62 26 25.5 27.12 25.5 28.5V40H20Z" fill="#f8fafc"/>
+  <path d="M28 40V30H36V40H28Z" fill="#93c5fd"/>
+  <circle cx="32" cy="15.5" r="4.5" fill="#f8fafc"/>
+</svg>

@@ -136,6 +136,36 @@ export async function deleteStudyCase(id: string) {
 // QUESTIONS & ANSWERS
 // ============================================================
 
+const REQUIRED_OPTION_LABELS = ["A", "B", "C", "D"] as const;
+
+function normalizeQuestionOptions(
+  options: Array<{ id?: string; label?: string; text: string; order?: number }>
+) {
+  const normalized = REQUIRED_OPTION_LABELS.map((label, index) => {
+    const matchingOption = options.find(
+      (opt) => (opt.label ?? "").toUpperCase() === label
+    );
+
+    if (!matchingOption) {
+      throw new Error(`Une option de réponse est manquante pour le libellé ${label}.`);
+    }
+
+    const text = matchingOption.text?.trim();
+    if (!text) {
+      throw new Error(`Le texte de l'option ${label} ne peut pas être vide.`);
+    }
+
+    return {
+      id: matchingOption.id,
+      label,
+      text,
+      order: matchingOption.order ?? index + 1,
+    };
+  });
+
+  return normalized;
+}
+
 export async function createQuestion(data: {
   studyCaseId: string;
   text: string;
@@ -143,6 +173,8 @@ export async function createQuestion(data: {
   isActive: boolean;
   options: { label: string; text: string; order: number }[];
 }) {
+  const normalizedOptions = normalizeQuestionOptions(data.options);
+
   await prisma.question.create({
     data: {
       studyCaseId: data.studyCaseId,
@@ -150,7 +182,7 @@ export async function createQuestion(data: {
       isActive: data.isActive,
       order: data.order,
       options: {
-        create: data.options.map((opt) => ({
+        create: normalizedOptions.map((opt) => ({
           label: opt.label,
           text: opt.text,
           order: opt.order,
@@ -173,7 +205,8 @@ export async function updateQuestion(
     options: { id?: string; label: string; text: string; order: number }[];
   }
 ) {
-  // Update main question details
+  const normalizedOptions = normalizeQuestionOptions(data.options);
+
   await prisma.question.update({
     where: { id },
     data: {
@@ -184,18 +217,27 @@ export async function updateQuestion(
     },
   });
 
-  // Update options in-place to avoid deleting options that may have foreign key references
-  for (const opt of data.options) {
-    if (opt.id) {
+  const existingOptions = await prisma.answerOption.findMany({
+    where: { questionId: id },
+    orderBy: { order: "asc" },
+  });
+
+  const existingByLabel = new Map(
+    existingOptions.map((opt) => [opt.label.toUpperCase(), opt])
+  );
+
+  for (const opt of normalizedOptions) {
+    const existing = existingByLabel.get(opt.label.toUpperCase());
+
+    if (existing) {
       await prisma.answerOption.update({
-        where: { id: opt.id },
+        where: { id: existing.id },
         data: {
           text: opt.text,
           order: opt.order,
         },
       });
     } else {
-      // If for some reason it didn't exist (e.g. manual DB tampering, or adding new option)
       await prisma.answerOption.create({
         data: {
           questionId: id,
@@ -204,6 +246,13 @@ export async function updateQuestion(
           order: opt.order,
         },
       });
+    }
+  }
+
+  const requiredLabels = new Set(REQUIRED_OPTION_LABELS);
+  for (const existing of existingOptions) {
+    if (!requiredLabels.has(existing.label.toUpperCase() as "A" | "B" | "C" | "D")) {
+      continue;
     }
   }
 
