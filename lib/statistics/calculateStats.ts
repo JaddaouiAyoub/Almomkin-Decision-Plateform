@@ -91,6 +91,7 @@ export async function calculateStats(
     // Group-level Answer distribution (aggregated across all questions)
     const optionCounts = new Map<string, number>();
     groupResponses.forEach((r) => {
+      if (!r.answerOptionId) return;
       optionCounts.set(
         r.answerOptionId,
         (optionCounts.get(r.answerOptionId) ?? 0) + 1
@@ -101,7 +102,7 @@ export async function calculateStats(
     // but we'll try to find common option labels (A, B, C, D) for the high-level chart.
     const aggregatedDist = ["A", "B", "C", "D"].map((label) => {
       // Find all options with this label in the experiment
-      const matchingResponses = groupResponses.filter((r) => r.answerOption.label === label);
+      const matchingResponses = groupResponses.filter((r) => r.answerOption?.label === label);
       const count = matchingResponses.length;
       return {
         optionId: `agg-${label}`,
@@ -185,6 +186,41 @@ export async function calculateStats(
     .filter((r) => r.confidenceScore !== null)
     .map((r) => r.confidenceScore as number);
 
+  const sessionResponses = new Map<string, typeof responses>();
+  for (const response of responses) {
+    const current = sessionResponses.get(response.sessionId) ?? [];
+    current.push(response);
+    sessionResponses.set(response.sessionId, current);
+  }
+  let initialConfidenceTotal = 0;
+  let finalConfidenceTotal = 0;
+  let confidencePairs = 0;
+  let changedDecisions = 0;
+  let comparableDecisions = 0;
+  let helpedYes = 0;
+  let helpedPartially = 0;
+  let helpedNo = 0;
+  for (const session of sessionResponses.values()) {
+    const initial = session.find((r) => r.question.stage === "INITIAL_CONFIDENCE");
+    const final = session.find((r) => r.question.stage === "FINAL_CONFIDENCE");
+    const initialDecision = session.find((r) => r.question.stage === "INITIAL_DECISION");
+    const finalDecision = session.find((r) => r.question.stage === "FINAL_DECISION");
+    const helped = session.find((r) => r.question.stage === "ALMOMKIN_HELPED");
+    if (initial?.confidenceScore != null && final?.confidenceScore != null) {
+      initialConfidenceTotal += initial.confidenceScore;
+      finalConfidenceTotal += final.confidenceScore;
+      confidencePairs += 1;
+    }
+    if (initialDecision && finalDecision) {
+      comparableDecisions += 1;
+      if (initialDecision.answerOptionId !== finalDecision.answerOptionId || initialDecision.responseText !== finalDecision.responseText) changedDecisions += 1;
+    }
+    const helpedLabel = helped?.answerOption?.text || helped?.responseText;
+    if (helpedLabel === "Oui") helpedYes += 1;
+    if (helpedLabel === "Partiellement") helpedPartially += 1;
+    if (helpedLabel === "Non") helpedNo += 1;
+  }
+
   const emptyGroup: GroupStats = {
     groupId: "",
     groupLabel: "A",
@@ -220,6 +256,15 @@ export async function calculateStats(
     groupA: groupStatsMap.get("A") ?? emptyGroup,
     groupB: groupStatsMap.get("B") ?? emptyGroup,
     perQuestion: perQuestionStats,
+    journey: {
+      initialConfidence: confidencePairs ? Math.round((initialConfidenceTotal / confidencePairs) * 10) / 10 : 0,
+      finalConfidence: confidencePairs ? Math.round((finalConfidenceTotal / confidencePairs) * 10) / 10 : 0,
+      changedDecisions,
+      comparableDecisions,
+      helpedYes,
+      helpedPartially,
+      helpedNo,
+    },
   };
 }
 
@@ -276,8 +321,8 @@ export async function getResponsesForTable(filters: {
       caseTitle: r.studyCase.title,
       questionOrder: r.question.order,
       questionText: r.question.text,
-      answerLabel: r.answerOption.label,
-      answerText: r.answerOption.text,
+      answerLabel: r.answerOption?.label || "",
+      answerText: r.answerOption?.text || r.responseText || "",
       decisionTimeMs: r.decisionTimeMs,
       confidenceScore: r.confidenceScore,
       createdAt: r.createdAt.toISOString(),
@@ -289,9 +334,12 @@ export async function getResponsesForTable(filters: {
   };
 }
 
-export async function getDecisionTimeDistribution(experimentId: string) {
+export async function getDecisionTimeDistribution(experimentId: string, studyCaseId?: string) {
   const responses = await prisma.response.findMany({
-    where: { session: { experimentId } },
+    where: {
+      session: { experimentId, ...(studyCaseId ? { studyCaseId } : {}) },
+      ...(studyCaseId ? { studyCaseId } : {}),
+    },
     select: { decisionTimeMs: true, group: { select: { label: true } } },
   });
 
@@ -315,10 +363,11 @@ export async function getDecisionTimeDistribution(experimentId: string) {
   });
 }
 
-export async function getConfidenceDistribution(experimentId: string) {
+export async function getConfidenceDistribution(experimentId: string, studyCaseId?: string) {
   const responses = await prisma.response.findMany({
     where: {
-      session: { experimentId },
+      session: { experimentId, ...(studyCaseId ? { studyCaseId } : {}) },
+      ...(studyCaseId ? { studyCaseId } : {}),
       confidenceScore: { not: null },
     },
     select: {

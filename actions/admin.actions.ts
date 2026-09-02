@@ -36,6 +36,7 @@ export async function createStudyCase(data: {
   title: string;
   isActive: boolean;
   order: number;
+  newInformation: string;
   contentA: string;
   contentB: string;
 }) {
@@ -55,6 +56,7 @@ export async function createStudyCase(data: {
       title: data.title,
       isActive: data.isActive,
       order: data.order,
+      newInformation: data.newInformation,
       groupContents: {
         create: [
           { groupLabel: "A", content: data.contentA },
@@ -73,6 +75,7 @@ export async function updateStudyCase(
     title: string;
     isActive: boolean;
     order: number;
+    newInformation: string;
     contentA: string;
     contentB: string;
   }
@@ -84,6 +87,7 @@ export async function updateStudyCase(
       title: data.title,
       isActive: data.isActive,
       order: data.order,
+      newInformation: data.newInformation,
     },
   });
 
@@ -136,33 +140,24 @@ export async function deleteStudyCase(id: string) {
 // QUESTIONS & ANSWERS
 // ============================================================
 
-const REQUIRED_OPTION_LABELS = ["A", "B", "C", "D"] as const;
-
 function normalizeQuestionOptions(
-  options: Array<{ id?: string; label?: string; text: string; order?: number }>
+  options: Array<{ id?: string; label?: string; text: string; order?: number }>,
+  type: "SINGLE_CHOICE" | "FREE_TEXT" | "SCALE" = "SINGLE_CHOICE"
 ) {
-  const normalized = REQUIRED_OPTION_LABELS.map((label, index) => {
-    const matchingOption = options.find(
-      (opt) => (opt.label ?? "").toUpperCase() === label
-    );
-
-    if (!matchingOption) {
-      throw new Error(`Une option de réponse est manquante pour le libellé ${label}.`);
-    }
-
-    const text = matchingOption.text?.trim();
+  if (type === "FREE_TEXT") return [];
+  if (options.length < 2) throw new Error("Une question à choix doit avoir au moins deux options.");
+  const normalized = options.map((option, index) => {
+    const text = option.text?.trim();
     if (!text) {
-      throw new Error(`Le texte de l'option ${label} ne peut pas être vide.`);
+      throw new Error(`Le texte de l'option ${index + 1} ne peut pas être vide.`);
     }
-
     return {
-      id: matchingOption.id,
-      label,
+      id: option.id,
+      label: option.label?.trim() || String.fromCharCode(65 + index),
       text,
-      order: matchingOption.order ?? index + 1,
+      order: option.order ?? index + 1,
     };
   });
-
   return normalized;
 }
 
@@ -171,9 +166,11 @@ export async function createQuestion(data: {
   text: string;
   order: number;
   isActive: boolean;
+  type?: "SINGLE_CHOICE" | "FREE_TEXT" | "SCALE";
+  stage?: "INITIAL_DECISION" | "JUSTIFICATION" | "INITIAL_CONFIDENCE" | "ALMOMKIN_ANALYSIS" | "FINAL_DECISION" | "FINAL_CONFIDENCE" | "ALMOMKIN_HELPED";
   options: { label: string; text: string; order: number }[];
 }) {
-  const normalizedOptions = normalizeQuestionOptions(data.options);
+  const normalizedOptions = normalizeQuestionOptions(data.options, data.type);
 
   await prisma.question.create({
     data: {
@@ -181,6 +178,8 @@ export async function createQuestion(data: {
       text: data.text,
       isActive: data.isActive,
       order: data.order,
+      type: data.type || "SINGLE_CHOICE",
+      stage: data.stage || "INITIAL_DECISION",
       options: {
         create: normalizedOptions.map((opt) => ({
           label: opt.label,
@@ -202,10 +201,12 @@ export async function updateQuestion(
     text: string;
     order: number;
     isActive: boolean;
+    type?: "SINGLE_CHOICE" | "FREE_TEXT" | "SCALE";
+    stage?: "INITIAL_DECISION" | "JUSTIFICATION" | "INITIAL_CONFIDENCE" | "ALMOMKIN_ANALYSIS" | "FINAL_DECISION" | "FINAL_CONFIDENCE" | "ALMOMKIN_HELPED";
     options: { id?: string; label: string; text: string; order: number }[];
   }
 ) {
-  const normalizedOptions = normalizeQuestionOptions(data.options);
+  const normalizedOptions = normalizeQuestionOptions(data.options, data.type);
 
   await prisma.question.update({
     where: { id },
@@ -214,6 +215,8 @@ export async function updateQuestion(
       text: data.text,
       isActive: data.isActive,
       order: data.order,
+      type: data.type,
+      stage: data.stage,
     },
   });
 
@@ -246,13 +249,6 @@ export async function updateQuestion(
           order: opt.order,
         },
       });
-    }
-  }
-
-  const requiredLabels = new Set(REQUIRED_OPTION_LABELS);
-  for (const existing of existingOptions) {
-    if (!requiredLabels.has(existing.label.toUpperCase() as "A" | "B" | "C" | "D")) {
-      continue;
     }
   }
 

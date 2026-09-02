@@ -9,8 +9,8 @@ import type { StartSessionResponse } from "@/types";
 export async function startSession(
   experimentId: string
 ): Promise<StartSessionResponse> {
-  // 1. Get the active study case
-  const studyCase = await prisma.studyCase.findFirst({
+  // Load the complete ordered journey before creating participant sessions.
+  const studyCases = await prisma.studyCase.findMany({
     where: { experimentId, isActive: true },
     include: {
       groupContents: true,
@@ -27,59 +27,69 @@ export async function startSession(
     orderBy: { order: "asc" },
   });
 
-  if (!studyCase) {
+  if (studyCases.length === 0) {
     throw new Error("No active study case found");
   }
 
-  if (studyCase.questions.length === 0) {
+  if (studyCases.some((studyCase) => studyCase.questions.length === 0)) {
     throw new Error("No active questions found for this study case");
   }
 
   // 2. Assign group (server-side)
   const { groupId, groupLabel } = await assignGroup(experimentId);
 
-  // 3. Get case content for the assigned group
-  const groupContent = studyCase.groupContents.find(
-    (c) => c.groupLabel === groupLabel
-  );
-
-  if (!groupContent) {
-    throw new Error(`No content found for group ${groupLabel}`);
-  }
-
-  // 4. Create participant
+  // Create one participant and one session per case for before/after comparison.
   const participant = await prisma.participant.create({ data: {} });
 
-  // 5. Create test session
-  const session = await prisma.testSession.create({
-    data: {
-      participantId: participant.id,
-      experimentId,
-      groupId,
-      studyCaseId: studyCase.id,
-      status: "STARTED",
-    },
-  });
+  const cases = await Promise.all(studyCases.map(async (studyCase) => {
+    const groupContent = studyCase.groupContents.find(
+      (content) => content.groupLabel === groupLabel
+    );
 
-  // 6. Return data needed for the test flow (NO group label exposed)
+    if (!groupContent) {
+      throw new Error(`No content found for group ${groupLabel}`);
+    }
+
+    const session = await prisma.testSession.create({
+      data: {
+        participantId: participant.id,
+        experimentId,
+        groupId,
+        studyCaseId: studyCase.id,
+        status: "STARTED",
+      },
+    });
+
+    return {
+      sessionId: session.id,
+      studyCase: {
+        id: studyCase.id,
+        title: studyCase.title,
+        content: groupContent.content,
+        newInformation: studyCase.newInformation,
+      },
+      questions: studyCase.questions.map((question) => ({
+        id: question.id,
+        text: question.text,
+        order: question.order,
+        type: question.type,
+        stage: question.stage,
+        options: question.options.map((option) => ({
+          id: option.id,
+          label: option.label,
+          text: option.text,
+          order: option.order,
+        })),
+      })),
+    };
+  }));
+
   return {
     participantId: participant.id,
-    sessionId: session.id,
-    studyCase: {
-      id: studyCase.id,
-      title: studyCase.title,
-      content: groupContent.content,
-    },
-    questions: studyCase.questions.map((q) => ({
-      id: q.id,
-      text: q.text,
-      order: q.order,
-      options: q.options.map((opt) => ({
-        id: opt.id,
-        label: opt.label,
-        text: opt.text,
-        order: opt.order,
-      })),
-    })),
+    sessionId: cases[0].sessionId,
+    totalCases: cases.length,
+    cases,
+    studyCase: cases[0].studyCase,
+    questions: cases[0].questions,
   };
 }

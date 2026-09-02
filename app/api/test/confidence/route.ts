@@ -5,7 +5,7 @@ import { z } from "zod";
 const schema = z.object({
   responseId: z.string().uuid(),
   sessionId: z.string().uuid(),
-  confidenceScore: z.number().int().min(0).max(10),
+  confidenceScore: z.number().int().min(1).max(5),
   isLastQuestion: z.boolean().default(true),
 });
 

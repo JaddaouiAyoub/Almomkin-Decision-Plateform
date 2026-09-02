@@ -34,8 +34,8 @@ export default async function AdminDashboard({
 
   const [stats, timeDistribution, confidenceDistribution] = await Promise.all([
     calculateStats(experiment.id, selectedCaseId || undefined),
-    getDecisionTimeDistribution(experiment.id),
-    getConfidenceDistribution(experiment.id),
+    getDecisionTimeDistribution(experiment.id, selectedCaseId || undefined),
+    getConfidenceDistribution(experiment.id, selectedCaseId || undefined),
   ]);
 
   const selectedCase = experiment.studyCases.find((studyCase) => studyCase.id === selectedCaseId);
@@ -187,6 +187,15 @@ export default async function AdminDashboard({
                   <strong className="text-slate-900">{stats.groupB.responseCount}</strong>
                 </div>
               </div>
+            </div>
+            <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+              <p className="text-xs font-medium uppercase tracking-[0.2em] text-emerald-700">Avant / après</p>
+              <p className="mt-2 text-sm text-slate-700">Confiance : <strong>{stats.journey.initialConfidence}</strong> → <strong>{stats.journey.finalConfidence}</strong> / 5</p>
+              <p className="mt-1 text-sm text-slate-700">Décisions changées : <strong>{stats.journey.changedDecisions}</strong> / {stats.journey.comparableDecisions}</p>
+            </div>
+            <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+              <p className="text-xs font-medium uppercase tracking-[0.2em] text-amber-700">Aide perçue</p>
+              <p className="mt-2 text-sm text-slate-700">Oui {stats.journey.helpedYes} · Partiellement {stats.journey.helpedPartially} · Non {stats.journey.helpedNo}</p>
             </div>
           </div>
         </section>

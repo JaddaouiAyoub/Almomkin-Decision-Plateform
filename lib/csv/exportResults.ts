@@ -101,7 +101,7 @@ export async function exportResultsToCSV(
       group: { label: r.group.label, name: r.group.name },
       studyCase: { id: r.studyCaseId, title: r.studyCase.title },
       question: { id: r.questionId, text: r.question.text, order: r.question.order },
-      answerOption: { label: r.answerOption.label, text: r.answerOption.text },
+      answerOption: { label: r.answerOption?.label || "", text: r.answerOption?.text || r.responseText || "" },
       decisionTimeMs: r.decisionTimeMs,
       confidenceScore: r.confidenceScore,
       questionShownAt: r.questionShownAt,

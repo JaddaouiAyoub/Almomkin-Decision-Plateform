@@ -5,7 +5,8 @@ interface SubmitDecisionInput {
   sessionId: string;
   participantId: string;
   questionId: string;
-  answerOptionId: string;
+  answerOptionId?: string;
+  responseText?: string;
   questionShownAt: Date; // Stored server-side
   clientTimeMs?: number; // From client (for audit only)
 }
@@ -37,16 +38,27 @@ export async function submitDecision(
     throw new Error("Session already completed");
   }
 
-  // Validate the answer option belongs to the question
-  const option = await prisma.answerOption.findFirst({
-    where: {
-      id: input.answerOptionId,
-      questionId: input.questionId,
-    },
+  const question = await prisma.question.findFirst({
+    where: { id: input.questionId, studyCaseId: session.studyCaseId, isActive: true },
   });
 
-  if (!option) {
-    throw new Error("Invalid answer option");
+  if (!question) {
+    throw new Error("Invalid question");
+  }
+
+  if (question.type === "FREE_TEXT" && !input.responseText?.trim()) {
+    throw new Error("Text response is required");
+  }
+
+  let selectedOption: { label: string } | null = null;
+  if (question.type !== "FREE_TEXT") {
+    selectedOption = await prisma.answerOption.findFirst({
+      where: { id: input.answerOptionId, questionId: input.questionId },
+      select: { label: true },
+    });
+    if (!selectedOption) {
+      throw new Error("Invalid answer option");
+    }
   }
 
   // Create response
@@ -58,6 +70,8 @@ export async function submitDecision(
       studyCaseId: session.studyCaseId,
       questionId: input.questionId,
       answerOptionId: input.answerOptionId,
+      responseText: input.responseText?.trim() || null,
+      confidenceScore: question.type === "SCALE" ? Number(selectedOption?.label) : null,
       decisionTimeMs,
       questionShownAt: input.questionShownAt,
       answeredAt,
@@ -87,8 +101,8 @@ export async function saveConfidence(
   confidenceScore: number,
   isLastQuestion: boolean
 ): Promise<void> {
-  if (confidenceScore < 0 || confidenceScore > 10) {
-    throw new Error("Confidence score must be between 0 and 10");
+  if (confidenceScore < 1 || confidenceScore > 5) {
+    throw new Error("Confidence score must be between 1 and 5");
   }
 
   await prisma.response.update({

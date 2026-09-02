@@ -70,6 +70,7 @@ model StudyCase {
   experimentId  String
   experiment    Experiment         @relation(fields: [experimentId], references: [id], onDelete: Cascade)
   title         String
+  newInformation String?            @db.Text
   isActive      Boolean            @default(true)
   order         Int                @default(0)
   groupContents CaseGroupContent[]
@@ -105,6 +106,8 @@ model Question {
   studyCaseId String
   studyCase   StudyCase      @relation(fields: [studyCaseId], references: [id], onDelete: Cascade)
   text        String         @db.Text
+  type        QuestionType   @default(SINGLE_CHOICE)
+  stage       QuestionStage  @default(INITIAL_DECISION)
   order       Int            @default(0)
   isActive    Boolean        @default(true)
   options     AnswerOption[]
@@ -184,8 +187,9 @@ model Response {
   studyCase       StudyCase       @relation(fields: [studyCaseId], references: [id])
   questionId      String
   question        Question        @relation(fields: [questionId], references: [id])
-  answerOptionId  String
-  answerOption    AnswerOption    @relation(fields: [answerOptionId], references: [id])
+  answerOptionId  String?
+  answerOption    AnswerOption?   @relation(fields: [answerOptionId], references: [id])
+  responseText    String?         @db.Text
   decisionTimeMs  Int // Millisecondes (calculé côté serveur)
   confidenceScore Int? // 0-10 (ajouté après)
   questionShownAt DateTime // Timestamp serveur quand question affichée
@@ -212,4 +216,20 @@ enum SessionStatus {
   QUESTION_SHOWN
   ANSWERED
   COMPLETED
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  FREE_TEXT
+  SCALE
+}
+
+enum QuestionStage {
+  INITIAL_DECISION
+  JUSTIFICATION
+  INITIAL_CONFIDENCE
+  ALMOMKIN_ANALYSIS
+  FINAL_DECISION
+  FINAL_CONFIDENCE
+  ALMOMKIN_HELPED
 }

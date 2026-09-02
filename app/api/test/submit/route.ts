@@ -7,7 +7,8 @@ const schema = z.object({
   sessionId: z.string().uuid(),
   participantId: z.string().uuid(),
   questionId: z.string().uuid(),
-  answerOptionId: z.string().uuid(),
+  answerOptionId: z.string().uuid().optional(),
+  responseText: z.string().trim().min(1).max(5000).optional(),
   clientTimeMs: z.number().int().positive().optional(),
 });
 
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
       participantId: parsed.data.participantId,
       questionId: parsed.data.questionId,
       answerOptionId: parsed.data.answerOptionId,
+      responseText: parsed.data.responseText,
       questionShownAt,
       clientTimeMs: parsed.data.clientTimeMs,
     });

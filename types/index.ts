@@ -11,6 +11,16 @@ export type SessionStatus =
   | "ANSWERED"
   | "COMPLETED";
 
+export type QuestionType = "SINGLE_CHOICE" | "FREE_TEXT" | "SCALE";
+export type QuestionStage =
+  | "INITIAL_DECISION"
+  | "JUSTIFICATION"
+  | "INITIAL_CONFIDENCE"
+  | "ALMOMKIN_ANALYSIS"
+  | "FINAL_DECISION"
+  | "FINAL_CONFIDENCE"
+  | "ALMOMKIN_HELPED";
+
 // ============================================================
 // REUSABLE QUESTION DATA
 // ============================================================
@@ -19,6 +29,8 @@ export interface QuestionData {
   id: string;
   text: string;
   order: number;
+  type: QuestionType;
+  stage: QuestionStage;
   options: {
     id: string;
     label: string;
@@ -34,10 +46,17 @@ export interface QuestionData {
 export interface StartSessionResponse {
   participantId: string;
   sessionId: string;
+  totalCases: number;
+  cases: Array<{
+    sessionId: string;
+    studyCase: StartSessionResponse["studyCase"];
+    questions: QuestionData[];
+  }>;
   studyCase: {
     id: string;
     title: string;
     content: string; // content for the assigned group
+    newInformation: string | null;
   };
   questions: QuestionData[];
 }
@@ -63,7 +82,7 @@ export type TestStep =
   | "landing"
   | "case"
   | "question"
-  | "confidence"
+  | "information"
   | "completed";
 
 export interface TestState {
@@ -78,10 +97,13 @@ export interface TestState {
   questions: QuestionData[];
   currentQuestionIndex: number;
   selectedOptionId?: string;
+  responseText?: string;
   responseId?: string;
   questionShownAt?: string;
   decisionTimeMs?: number;
   confidenceScore?: number;
+  cases: StartSessionResponse["cases"];
+  currentCaseIndex: number;
 }
 
 // ============================================================
@@ -136,6 +158,15 @@ export interface OverallStats {
   groupA: GroupStats;
   groupB: GroupStats;
   perQuestion: PerQuestionStats[];
+  journey: {
+    initialConfidence: number;
+    finalConfidence: number;
+    changedDecisions: number;
+    comparableDecisions: number;
+    helpedYes: number;
+    helpedPartially: number;
+    helpedNo: number;
+  };
 }
 
 // ============================================================

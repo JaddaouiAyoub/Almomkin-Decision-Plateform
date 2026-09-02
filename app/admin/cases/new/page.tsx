@@ -15,10 +15,11 @@ export default function NewCasePage() {
     const title = formData.get("title") as string;
     const isActive = formData.get("isActive") === "true";
     const order = parseInt(formData.get("order") as string, 10);
+    const newInformation = formData.get("newInformation") as string;
     const contentA = formData.get("contentA") as string;
     const contentB = formData.get("contentB") as string;
 
-    await createStudyCase({ title, isActive, order, contentA, contentB });
+    await createStudyCase({ title, isActive, order, newInformation, contentA, contentB });
     redirect("/admin/cases");
   }
 
@@ -85,6 +86,10 @@ export default function NewCasePage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+          <div className="space-y-2 md:col-span-2">
+            <label htmlFor="newInformation" className="block text-sm font-medium text-slate-700">Nouvelle information après l'analyse ALMOMKIN</label>
+            <textarea id="newInformation" name="newInformation" required rows={4} className="w-full px-4 py-3 bg-amber-50/40 border border-amber-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/50 resize-y" placeholder="Information révélée après l'analyse..." />
+          </div>
           {/* Group A Content */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">

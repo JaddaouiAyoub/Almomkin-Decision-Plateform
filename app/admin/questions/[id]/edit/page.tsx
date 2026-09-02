@@ -4,6 +4,7 @@ import { ArrowLeft, Save } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { updateQuestion } from "@/actions/admin.actions";
 import { redirect, notFound } from "next/navigation";
+import { QuestionOptionsEditor } from "@/components/admin/QuestionOptionsEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -43,15 +44,11 @@ export default async function EditQuestionPage({
     const text = formData.get("text") as string;
     const isActive = formData.get("isActive") === "true";
     const order = parseInt(formData.get("order") as string, 10);
-    
-    const options = [
-      { id: formData.get("optionA_id") as string, label: "A", text: formData.get("optionA") as string, order: 1 },
-      { id: formData.get("optionB_id") as string, label: "B", text: formData.get("optionB") as string, order: 2 },
-      { id: formData.get("optionC_id") as string, label: "C", text: formData.get("optionC") as string, order: 3 },
-      { id: formData.get("optionD_id") as string, label: "D", text: formData.get("optionD") as string, order: 4 },
-    ];
+    const type = formData.get("type") as "SINGLE_CHOICE" | "FREE_TEXT" | "SCALE";
+    const stage = formData.get("stage") as "INITIAL_DECISION" | "JUSTIFICATION" | "INITIAL_CONFIDENCE" | "ALMOMKIN_ANALYSIS" | "FINAL_DECISION" | "FINAL_CONFIDENCE" | "ALMOMKIN_HELPED";
+    const options = JSON.parse((formData.get("options") as string) || "[]");
 
-    await updateQuestion(id, { studyCaseId, text, isActive, order, options });
+    await updateQuestion(id, { studyCaseId, text, isActive, order, type, stage, options });
     redirect("/admin/questions");
   }
 
@@ -118,6 +115,20 @@ export default async function EditQuestionPage({
             </div>
 
             <div className="space-y-2">
+              <label htmlFor="type" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Type de question</label>
+              <select id="type" name="type" defaultValue={question.type} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900">
+                <option value="SINGLE_CHOICE">Choix unique</option><option value="FREE_TEXT">Texte libre</option><option value="SCALE">Échelle</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="stage" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Étape du parcours</label>
+              <select id="stage" name="stage" defaultValue={question.stage} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900">
+                <option value="INITIAL_DECISION">Décision initiale</option><option value="JUSTIFICATION">Pourquoi ?</option><option value="INITIAL_CONFIDENCE">Confiance initiale</option><option value="ALMOMKIN_ANALYSIS">Analyse ALMOMKIN</option><option value="FINAL_DECISION">Nouvelle décision</option><option value="FINAL_CONFIDENCE">Nouvelle confiance</option><option value="ALMOMKIN_HELPED">ALMOMKIN a-t-il aidé ?</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
               <label htmlFor="order" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Ordre d'affichage
               </label>
@@ -156,29 +167,7 @@ export default async function EditQuestionPage({
                 Options de réponse
               </h3>
               
-              <div className="space-y-4">
-                {['A', 'B', 'C', 'D'].map((label) => {
-                  const opt = getOptionByLabel(label);
-                  return (
-                    <div key={label} className="flex gap-4">
-                      <input type="hidden" name={`option${label}_id`} value={opt.id} />
-                      <div className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-bold border border-indigo-100 dark:border-indigo-800">
-                        {label}
-                      </div>
-                      <div className="flex-grow">
-                        <input
-                          type="text"
-                          name={`option${label}`}
-                          required
-                          defaultValue={opt.text}
-                          placeholder={`Texte de l'option ${label}`}
-                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:border-indigo-400 dark:focus:ring-indigo-400"
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <QuestionOptionsEditor initialOptions={question.options.map((option) => ({ id: option.id, label: option.label, text: option.text, order: option.order }))} allowEmpty={question.type === "FREE_TEXT"} />
             </div>
           </div>
 

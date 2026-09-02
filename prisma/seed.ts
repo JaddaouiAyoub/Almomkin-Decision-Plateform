@@ -1,215 +1,134 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, QuestionStage, QuestionType } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+type SeedQuestion = {
+  stage: QuestionStage;
+  type: QuestionType;
+  text: string;
+  options?: string[];
+};
+
+type SeedCase = {
+  title: string;
+  situation: string;
+  newInformation: string;
+  questions: SeedQuestion[];
+};
+
+const choice = (stage: QuestionStage, text: string, options: string[]): SeedQuestion => ({ stage, type: QuestionType.SINGLE_CHOICE, text, options });
+const scale = (stage: QuestionStage, text: string): SeedQuestion => ({ stage, type: QuestionType.SCALE, text, options: ["1", "2", "3", "4", "5"] });
+const freeText = (stage: QuestionStage, text: string): SeedQuestion => ({ stage, type: QuestionType.FREE_TEXT, text });
+
+const cases: SeedCase[] = [
+  {
+    title: "Cas 1 - Achat d'une machine",
+    situation: "Une machine coûte 20 000 €.\nElle devrait permettre d'augmenter la production.",
+    newInformation: "La machine peut augmenter la production de 20 %, mais son entretien annuel coûte 3 000 €.",
+    questions: [
+      choice(QuestionStage.INITIAL_DECISION, "Achetez-vous la machine ?", ["Oui", "Non", "Je ne sais pas"]),
+      freeText(QuestionStage.JUSTIFICATION, "Pourquoi ?"),
+      scale(QuestionStage.INITIAL_CONFIDENCE, "Quel est votre niveau de confiance dans cette décision ?"),
+      freeText(QuestionStage.ALMOMKIN_ANALYSIS, "Quelles informations vous manquent avant de décider ?"),
+      choice(QuestionStage.FINAL_DECISION, "Votre décision change-t-elle ?", ["Oui", "Partiellement", "Non"]),
+      scale(QuestionStage.FINAL_CONFIDENCE, "Quel est votre nouveau niveau de confiance ?"),
+      choice(QuestionStage.ALMOMKIN_HELPED, "ALMOMKIN vous a-t-il aidé ?", ["Oui", "Partiellement", "Non"]),
+    ],
+  },
+  {
+    title: "Cas 2 - Recrutement",
+    situation: "Deux candidats sont disponibles.\nCandidat A : 10 ans d'expérience.\nCandidat B : 5 ans d'expérience, mais salaire moins élevé.",
+    newInformation: "Le candidat A a beaucoup plus d'expérience, mais le candidat B a déjà réalisé exactement le même type de projet que celui que vous allez lancer.",
+    questions: [
+      choice(QuestionStage.INITIAL_DECISION, "Qui choisissez-vous ?", ["A", "B", "Je ne sais pas"]),
+      freeText(QuestionStage.JUSTIFICATION, "Pourquoi ?"),
+      scale(QuestionStage.INITIAL_CONFIDENCE, "Quel est votre niveau de confiance dans cette décision ?"),
+      freeText(QuestionStage.ALMOMKIN_ANALYSIS, "Quelle information est la plus importante avant de choisir ?"),
+      choice(QuestionStage.FINAL_DECISION, "Votre décision change-t-elle ?", ["Oui", "Partiellement", "Non"]),
+      scale(QuestionStage.FINAL_CONFIDENCE, "Quel est votre nouveau niveau de confiance ?"),
+      choice(QuestionStage.ALMOMKIN_HELPED, "ALMOMKIN vous a-t-il aidé ?", ["Oui", "Partiellement", "Non"]),
+    ],
+  },
+  {
+    title: "Cas 3 - Lancement d'un produit",
+    situation: "Vous avez terminé un nouveau produit.\nVous pouvez :\nA. Le lancer immédiatement.\nB. Faire un test auprès de 20 utilisateurs.",
+    newInformation: "Le test de 20 utilisateurs coûte seulement 200 € et prend deux jours.",
+    questions: [
+      choice(QuestionStage.INITIAL_DECISION, "Quelle option choisissez-vous ?", ["A", "B"]),
+      freeText(QuestionStage.JUSTIFICATION, "Pourquoi ?"),
+      scale(QuestionStage.INITIAL_CONFIDENCE, "Quel est votre niveau de confiance dans cette décision ?"),
+      freeText(QuestionStage.ALMOMKIN_ANALYSIS, "Quel est le principal risque de votre choix ?"),
+      choice(QuestionStage.FINAL_DECISION, "Votre décision change-t-elle ?", ["Oui", "Partiellement", "Non"]),
+      scale(QuestionStage.FINAL_CONFIDENCE, "Quel est votre nouveau niveau de confiance ?"),
+      choice(QuestionStage.ALMOMKIN_HELPED, "ALMOMKIN vous a-t-il aidé ?", ["Oui", "Partiellement", "Non"]),
+    ],
+  },
+  {
+    title: "Cas 4 - Information contradictoire",
+    situation: "Vous recevez une information importante provenant d'une personne que vous considérez comme fiable.",
+    newInformation: "Une deuxième source fiable donne une information différente.",
+    questions: [
+      choice(QuestionStage.INITIAL_DECISION, "Agissez-vous immédiatement sur cette information ?", ["Oui", "Non", "Je vérifie d'abord"]),
+      freeText(QuestionStage.JUSTIFICATION, "Pourquoi ?"),
+      scale(QuestionStage.INITIAL_CONFIDENCE, "Quel est votre niveau de confiance dans cette décision ?"),
+      freeText(QuestionStage.ALMOMKIN_ANALYSIS, "Quelle vérification serait nécessaire avant d'agir ?"),
+      choice(QuestionStage.FINAL_DECISION, "Que faites-vous ?", ["Je garde la première information.", "Je garde la deuxième.", "Je vérifie davantage avant de décider."]),
+      scale(QuestionStage.FINAL_CONFIDENCE, "Quel est votre nouveau niveau de confiance ?"),
+      choice(QuestionStage.ALMOMKIN_HELPED, "ALMOMKIN vous a-t-il aidé ?", ["Oui", "Partiellement", "Non"]),
+    ],
+  },
+  {
+    title: "Cas 5 - Décision réversible",
+    situation: "Vous hésitez entre deux solutions.\nLa solution A est plus rapide.\nLa solution B demande plus de temps mais peut être meilleure à long terme.",
+    newInformation: "Vous pouvez tester la solution A pendant une semaine sans engagement définitif.",
+    questions: [
+      choice(QuestionStage.INITIAL_DECISION, "Quelle solution choisissez-vous ?", ["A", "B", "Je ne sais pas"]),
+      freeText(QuestionStage.JUSTIFICATION, "Pourquoi ?"),
+      scale(QuestionStage.INITIAL_CONFIDENCE, "Quel est votre niveau de confiance dans cette décision ?"),
+      choice(QuestionStage.ALMOMKIN_ANALYSIS, "Est-il possible de tester la solution A avant de prendre un engagement définitif ?", ["Oui", "Non", "Je ne sais pas"]),
+      choice(QuestionStage.FINAL_DECISION, "Votre décision change-t-elle ?", ["Oui", "Partiellement", "Non"]),
+      scale(QuestionStage.FINAL_CONFIDENCE, "Quel est votre nouveau niveau de confiance ?"),
+      choice(QuestionStage.ALMOMKIN_HELPED, "ALMOMKIN vous a-t-il aidé ?", ["Oui", "Partiellement", "Non"]),
+    ],
+  },
+];
+
 async function main() {
-  console.log("Seeding database...");
+  const email = process.env.ADMIN_EMAIL || "admin@almomkin.test";
+  const password = process.env.ADMIN_PASSWORD || "Admin@Almomkin2024";
+  const existingAdmin = await prisma.admin.findUnique({ where: { email } });
+  if (!existingAdmin) await prisma.admin.create({ data: { email, passwordHash: await bcrypt.hash(password, 10), name: process.env.ADMIN_NAME || "Administrateur" } });
 
-  // 1. Create Admin
-  const adminEmail = process.env.ADMIN_EMAIL || "admin@almomkin.test";
-  const adminPassword = process.env.ADMIN_PASSWORD || "Admin@Almomkin2024";
-  
-  const existingAdmin = await prisma.admin.findUnique({
-    where: { email: adminEmail },
-  });
-  
-  if (!existingAdmin) {
-    const passwordHash = await bcrypt.hash(adminPassword, 10);
-    await prisma.admin.create({
-      data: {
-        email: adminEmail,
-        passwordHash,
-        name: process.env.ADMIN_NAME || "Administrateur",
-      },
-    });
-    console.log(`Admin created with email: ${adminEmail}`);
-  } else {
-    console.log("Admin already exists.");
+  let experiment = await prisma.experiment.findFirst({ where: { name: "ALMOMKIN TEST V2" } });
+  if (!experiment) {
+    experiment = await prisma.experiment.create({ data: { name: "ALMOMKIN TEST V2", description: "Étude de la résistance et de l'amélioration du raisonnement avec la méthode ALMOMKIN.", isActive: true } });
+  }
+  for (const label of ["A", "B"]) {
+    await prisma.experimentGroup.upsert({ where: { experimentId_label: { experimentId: experiment.id, label } }, update: {}, create: { experimentId: experiment.id, label, name: `Groupe ${label}`, description: label === "A" ? "Formulation initiale" : "Formulation alternative" } });
   }
 
-  // 2. Create Experiment
-  const experiment = await prisma.experiment.create({
-    data: {
-      name: "ALMOMKIN TEST V1",
-      description: "Étude comportementale sur la prise de décision en situation d'incertitude.",
-    },
-  });
-  console.log(`Experiment created: ${experiment.name}`);
-
-  // 3. Create Groups
-  const groupA = await prisma.experimentGroup.create({
-    data: {
-      experimentId: experiment.id,
-      name: "Group A",
-      label: "A",
-      description: "Groupe avec formulation initiale.",
-    },
-  });
-  
-  const groupB = await prisma.experimentGroup.create({
-    data: {
-      experimentId: experiment.id,
-      name: "Group B",
-      label: "B",
-      description: "Groupe avec formulation alternative (biais cognitif).",
-    },
-  });
-  console.log("Groups A and B created.");
-
-  // 4. Create Study Case
-  const studyCase = await prisma.studyCase.create({
-    data: {
-      experimentId: experiment.id,
-      title: "Cas 01 : Projet Omega",
-    },
-  });
-  console.log("Study Case created.");
-
-  // 5. Create Case Contents
-  await prisma.caseGroupContent.create({
-    data: {
-      studyCaseId: studyCase.id,
-      groupLabel: "A",
-      content: "Vous devez prendre une décision importante concernant le Projet Omega. Vous disposez de deux informations principales, mais certaines données sont encore incertaines. Les projections montrent un retour sur investissement potentiel important, mais des risques de dépassement de budget existent.",
-    },
-  });
-  
-  await prisma.caseGroupContent.create({
-    data: {
-      studyCaseId: studyCase.id,
-      groupLabel: "B",
-      content: "Vous êtes confronté à une décision urgente concernant le Projet Omega. Bien que deux informations clés soient disponibles, l'incertitude demeure forte. Si vous ne prenez pas de décision rapide, l'organisation pourrait subir des pertes financières, malgré un potentiel de retour sur investissement.",
-    },
-  });
-  console.log("Case contents created.");
-
-  // 6. Create Question
-  const question = await prisma.question.create({
-    data: {
-      studyCaseId: studyCase.id,
-      text: "Quelle décision prenez-vous dans cette situation ?",
-    },
-  });
-  console.log("Question created.");
-
-  // 7. Create Answer Options
-  const optionA = await prisma.answerOption.create({
-    data: {
-      questionId: question.id,
-      label: "A",
-      text: "Prendre immédiatement une décision avec les informations disponibles.",
-      order: 1,
-    },
-  });
-  
-  const optionB = await prisma.answerOption.create({
-    data: {
-      questionId: question.id,
-      label: "B",
-      text: "Rechercher davantage d'informations avant de décider.",
-      order: 2,
-    },
-  });
-  
-  const optionC = await prisma.answerOption.create({
-    data: {
-      questionId: question.id,
-      label: "C",
-      text: "Reporter la décision jusqu'à obtenir davantage de certitude.",
-      order: 3,
-    },
-  });
-  
-  const optionD = await prisma.answerOption.create({
-    data: {
-      questionId: question.id,
-      label: "D",
-      text: "Demander l'avis d'une autre personne avant de décider.",
-      order: 4,
-    },
-  });
-  const options = [optionA, optionB, optionC, optionD];
-  console.log("Answer options created.");
-
-  // 8. Generate Fake Participants and Responses
-  console.log("Generating fake participants and responses...");
-  const participantCount = Math.floor(Math.random() * 21) + 30; // 30 to 50
-  
-  for (let i = 0; i < participantCount; i++) {
-    const isGroupA = Math.random() > 0.5;
-    const group = isGroupA ? groupA : groupB;
-    
-    // Create participant
-    const participant = await prisma.participant.create({ data: {} });
-    
-    // Create session
-    const session = await prisma.testSession.create({
-      data: {
-        participantId: participant.id,
-        experimentId: experiment.id,
-        groupId: group.id,
-        studyCaseId: studyCase.id,
-        status: "COMPLETED",
-        startedAt: new Date(Date.now() - Math.random() * 1000000000), // Random past date
-      },
+  for (const [index, seed] of cases.entries()) {
+    const studyCase = await prisma.studyCase.upsert({
+      where: { id: `almomkin-v2-case-${index + 1}` },
+      update: { title: seed.title, order: index + 1, isActive: true, newInformation: seed.newInformation },
+      create: { id: `almomkin-v2-case-${index + 1}`, experimentId: experiment.id, title: seed.title, order: index + 1, newInformation: seed.newInformation },
     });
-    
-    const questionShownAt = new Date(session.startedAt.getTime() + Math.random() * 5000);
-    const answeredAt = new Date(questionShownAt.getTime() + Math.random() * 30000 + 5000); // 5 to 35 seconds
-    const decisionTimeMs = answeredAt.getTime() - questionShownAt.getTime();
-    
-    // Pick an answer (slightly biased depending on group for realistic data)
-    let selectedOption;
-    const r = Math.random();
-    if (isGroupA) {
-      // Group A favors B and C
-      if (r < 0.2) selectedOption = optionA;
-      else if (r < 0.5) selectedOption = optionB;
-      else if (r < 0.8) selectedOption = optionC;
-      else selectedOption = optionD;
-    } else {
-      // Group B favors A and D
-      if (r < 0.4) selectedOption = optionA;
-      else if (r < 0.6) selectedOption = optionB;
-      else if (r < 0.7) selectedOption = optionC;
-      else selectedOption = optionD;
+    for (const groupLabel of ["A", "B"]) {
+      await prisma.caseGroupContent.upsert({ where: { studyCaseId_groupLabel: { studyCaseId: studyCase.id, groupLabel } }, update: { content: seed.situation }, create: { studyCaseId: studyCase.id, groupLabel, content: seed.situation } });
     }
-    
-    const confidenceScore = Math.floor(Math.random() * 6) + 5; // 5 to 10
-    
-    await prisma.response.create({
-      data: {
-        sessionId: session.id,
-        participantId: participant.id,
-        groupId: group.id,
-        studyCaseId: studyCase.id,
-        questionId: question.id,
-        answerOptionId: selectedOption.id,
-        decisionTimeMs,
-        confidenceScore,
-        questionShownAt,
-        answeredAt,
-        clientTimeMs: decisionTimeMs - (Math.random() * 100), // Slight variation
-        createdAt: answeredAt,
-      },
-    });
-    
-    await prisma.testSession.update({
-      where: { id: session.id },
-      data: { completedAt: new Date(answeredAt.getTime() + Math.random() * 5000) },
-    });
+    for (const [questionIndex, questionSeed] of seed.questions.entries()) {
+      const question = await prisma.question.upsert({
+        where: { id: `almomkin-v2-case-${index + 1}-question-${questionIndex + 1}` },
+        update: { text: questionSeed.text, type: questionSeed.type, stage: questionSeed.stage, order: questionIndex + 1, isActive: true },
+        create: { id: `almomkin-v2-case-${index + 1}-question-${questionIndex + 1}`, studyCaseId: studyCase.id, text: questionSeed.text, type: questionSeed.type, stage: questionSeed.stage, order: questionIndex + 1 },
+      });
+      for (const [optionIndex, optionText] of (questionSeed.options || []).entries()) {
+        await prisma.answerOption.upsert({ where: { id: `${question.id}-option-${optionIndex + 1}` }, update: { label: questionSeed.type === QuestionType.SCALE ? optionText : String.fromCharCode(65 + optionIndex), text: optionText, order: optionIndex + 1 }, create: { id: `${question.id}-option-${optionIndex + 1}`, questionId: question.id, label: questionSeed.type === QuestionType.SCALE ? optionText : String.fromCharCode(65 + optionIndex), text: optionText, order: optionIndex + 1 } });
+      }
+    }
   }
-  
-  console.log(`Successfully generated ${participantCount} fake participants with responses.`);
-  console.log("Database seeded successfully!");
+  console.log("ALMOMKIN V2 seeded: 5 cases, staged questions and dynamic options.");
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main().catch((error) => { console.error(error); process.exit(1); }).finally(() => prisma.$disconnect());
